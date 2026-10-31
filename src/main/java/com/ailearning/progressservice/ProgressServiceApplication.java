@@ -1,4 +1,4 @@
-package com.ailearning.progress_service;
+package com.ailearning.progressservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
