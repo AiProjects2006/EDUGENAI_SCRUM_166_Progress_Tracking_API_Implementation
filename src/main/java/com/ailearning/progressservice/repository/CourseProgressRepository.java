@@ -1,4 +1,4 @@
-package com.ailearning.progresservice.repository;
+package com.ailearning.progressservice.repository;
 
 import com.ailearning.progressservice.entity.CourseProgress;
 import org.springframework.data.jpa.repository.JpaRepository;
