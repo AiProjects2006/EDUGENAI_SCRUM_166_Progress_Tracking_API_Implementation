@@ -52,6 +52,7 @@ public class CourseProgressService {
                     .moduleId(moduleId)
                     .userId(userId)
                     .currentLevelId(1)
+                    .totalLevels(6)
                     .isCompleted(false)
                     .build();
             return moduleRepo.save(mp);
@@ -83,17 +84,22 @@ public class CourseProgressService {
     @Transactional(readOnly = true)
     public ModuleProgressResponseDTO getModuleProgress(Long userId, Long moduleId) {
         Optional<ModuleProgress> mp = moduleRepo.findByUserIdAndModuleId(userId, moduleId);
-        return mp.map(m -> ModuleProgressResponseDTO.builder()
-                .moduleId(m.getModuleId())
-                .currentLevelId(m.getCurrentLevelId())
-                .isCompleted(m.getIsCompleted())
-                .timeSpentMins(m.getTimeSpentMins())
-                .build())
-                .orElseGet(() -> ModuleProgressResponseDTO.builder()
-                        .moduleId(moduleId)
-                        .currentLevelId(1)
-                        .isCompleted(false)
-                        .timeSpentMins(0)
-                        .build());
+        return mp.map(m -> {
+            int total = m.getTotalLevels() != null ? m.getTotalLevels() : 6;
+            int current = Math.min(m.getCurrentLevelId(), total);
+            return ModuleProgressResponseDTO.builder()
+                    .moduleId(m.getModuleId())
+                    .currentLevelId(current)
+                    .totalLevels(total)
+                    .isCompleted(m.getIsCompleted())
+                    .timeSpentMins(m.getTimeSpentMins())
+                    .build();
+        }).orElseGet(() -> ModuleProgressResponseDTO.builder()
+                .moduleId(moduleId)
+                .currentLevelId(1)
+                .totalLevels(6)
+                .isCompleted(false)
+                .timeSpentMins(0)
+                .build());
     }
 }

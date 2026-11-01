@@ -58,19 +58,28 @@ class ProgressRollupServiceTest {
                 .userId(101L)
                 .moduleId(1L)
                 .currentLevelId(1)
+                .totalLevels(6)
                 .isCompleted(false)
                 .build();
     }
 
     @Test
-    void testRecordQuestLevelComplete_AdvancesLevel() {
+    void testRecordQuestLevelComplete_AdvancesLevelAndCountsActivity() {
+        ProgressSummary summary = ProgressSummary.builder()
+                .userId(101L)
+                .activitiesDone(0)
+                .starsEarned(0)
+                .build();
+
         when(courseProgressService.getOrCreateModuleProgress(101L, 5L, 1L)).thenReturn(mockModuleProgress);
+        when(summaryRepo.findById(101L)).thenReturn(Optional.of(summary));
 
         LevelCompleteRequestDTO req = LevelCompleteRequestDTO.builder()
                 .userId(101L)
                 .courseId(5L)
                 .moduleId(1L)
                 .levelNumber(1)
+                .totalLevels(6)
                 .isBossLevel(false)
                 .scorePercentage(BigDecimal.valueOf(90))
                 .build();
@@ -78,7 +87,10 @@ class ProgressRollupServiceTest {
         rollupService.recordQuestLevelComplete(req);
 
         assertEquals(2, mockModuleProgress.getCurrentLevelId());
+        assertEquals(1, summary.getActivitiesDone());
+        assertEquals(5, summary.getStarsEarned());
         verify(moduleRepo, times(1)).save(mockModuleProgress);
+        verify(summaryRepo, times(1)).save(summary);
         verify(recordRepo, times(1)).save(any());
     }
 
