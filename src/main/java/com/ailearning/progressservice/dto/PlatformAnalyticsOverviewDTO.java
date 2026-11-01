@@ -36,3 +36,4 @@ public class PlatformAnalyticsOverviewDTO {
         private BigDecimal averageScore;
     }
 }
+

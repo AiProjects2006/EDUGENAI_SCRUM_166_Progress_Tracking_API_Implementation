@@ -100,7 +100,7 @@ public class ProgressSummaryService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ProgressSummaryResponseDTO getStudentProgressDashboard(Long userId) {
         ProgressSummary summary = getOrCreateSummary(userId);
         List<SubjectProgress> subjects = subjectRepo.findByProgressSummary_UserId(userId);
