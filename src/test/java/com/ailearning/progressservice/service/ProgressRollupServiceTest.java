@@ -69,6 +69,10 @@ class ProgressRollupServiceTest {
                 .userId(101L)
                 .activitiesDone(0)
                 .starsEarned(0)
+                .mapActivitiesDone(0)
+                .practiceActivitiesDone(0)
+                .questStarsEarned(0)
+                .practiceStarsEarned(0)
                 .build();
 
         when(courseProgressService.getOrCreateModuleProgress(101L, 5L, 1L)).thenReturn(mockModuleProgress);
@@ -88,6 +92,8 @@ class ProgressRollupServiceTest {
 
         assertEquals(2, mockModuleProgress.getCurrentLevelId());
         assertEquals(1, summary.getActivitiesDone());
+        assertEquals(1, summary.getMapActivitiesDone());
+        assertEquals(0, summary.getPracticeActivitiesDone());
         assertEquals(5, summary.getStarsEarned());
         verify(moduleRepo, times(1)).save(mockModuleProgress);
         verify(summaryRepo, times(1)).save(summary);
@@ -95,11 +101,17 @@ class ProgressRollupServiceTest {
     }
 
     @Test
-    void testRecordPracticeActivity_AddsStarsAndActivities() {
+    void testRecordPracticeActivity_AddsStarsAndActivitiesWithoutTouchingCourses() {
         ProgressSummary summary = ProgressSummary.builder()
                 .userId(101L)
                 .starsEarned(50)
                 .activitiesDone(2)
+                .mapActivitiesDone(2)
+                .practiceActivitiesDone(0)
+                .questStarsEarned(50)
+                .practiceStarsEarned(0)
+                .coursesCompleted(0)
+                .modulesCompleted(0)
                 .build();
 
         when(summaryRepo.findById(101L)).thenReturn(Optional.of(summary));
@@ -116,6 +128,11 @@ class ProgressRollupServiceTest {
 
         assertEquals(80, summary.getStarsEarned());
         assertEquals(3, summary.getActivitiesDone());
+        assertEquals(2, summary.getMapActivitiesDone());
+        assertEquals(1, summary.getPracticeActivitiesDone());
+        // Verify coursesCompleted and modulesCompleted remain 0!
+        assertEquals(0, summary.getCoursesCompleted());
+        assertEquals(0, summary.getModulesCompleted());
         verify(summaryRepo, times(1)).save(summary);
         verify(recordRepo, times(1)).save(any());
     }

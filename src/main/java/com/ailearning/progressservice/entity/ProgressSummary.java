@@ -29,6 +29,7 @@ public class ProgressSummary {
     @Builder.Default
     private Integer modulesCompleted = 0;
 
+    // Combined Totals (Backwards compatible with UI)
     @Column(name = "activities_done")
     @Builder.Default
     private Integer activitiesDone = 0;
@@ -36,6 +37,24 @@ public class ProgressSummary {
     @Column(name = "stars_earned")
     @Builder.Default
     private Integer starsEarned = 0;
+
+    // Dual Tracking: Island Quest Map (Curriculum)
+    @Column(name = "map_activities_done")
+    @Builder.Default
+    private Integer mapActivitiesDone = 0;
+
+    @Column(name = "quest_stars_earned")
+    @Builder.Default
+    private Integer questStarsEarned = 0;
+
+    // Dual Tracking: AI Generated Questions (Practice Gym)
+    @Column(name = "practice_activities_done")
+    @Builder.Default
+    private Integer practiceActivitiesDone = 0;
+
+    @Column(name = "practice_stars_earned")
+    @Builder.Default
+    private Integer practiceStarsEarned = 0;
 
     @Column(name = "current_streak_days")
     @Builder.Default
@@ -62,6 +81,20 @@ public class ProgressSummary {
     @OneToMany(mappedBy = "progressSummary", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<StudentBadge> badges = new ArrayList<>();
+
+    public void recordMapActivity(int stars) {
+        this.mapActivitiesDone = (this.mapActivitiesDone == null ? 0 : this.mapActivitiesDone) + 1;
+        this.questStarsEarned = (this.questStarsEarned == null ? 0 : this.questStarsEarned) + stars;
+        this.activitiesDone = this.mapActivitiesDone + (this.practiceActivitiesDone == null ? 0 : this.practiceActivitiesDone);
+        this.starsEarned = this.questStarsEarned + (this.practiceStarsEarned == null ? 0 : this.practiceStarsEarned);
+    }
+
+    public void recordPracticeActivity(int stars) {
+        this.practiceActivitiesDone = (this.practiceActivitiesDone == null ? 0 : this.practiceActivitiesDone) + 1;
+        this.practiceStarsEarned = (this.practiceStarsEarned == null ? 0 : this.practiceStarsEarned) + stars;
+        this.activitiesDone = (this.mapActivitiesDone == null ? 0 : this.mapActivitiesDone) + this.practiceActivitiesDone;
+        this.starsEarned = (this.questStarsEarned == null ? 0 : this.questStarsEarned) + this.practiceStarsEarned;
+    }
 
     @PrePersist
     @PreUpdate

@@ -76,12 +76,12 @@ public class ProgressController {
         return ResponseEntity.ok(ApiResponse.success("Practice activity recorded and stars awarded successfully", null));
     }
 
-    // 7. Backoffice Analytics Overview
+    // 7. Backoffice Analytics Overview for Creators & Admins (Map vs Generated vs Combined)
     @GetMapping("/analytics/overview")
-    @Operation(summary = "Get aggregate topic performance analytics for Content Creators and Admins")
-    public ResponseEntity<ApiResponse<List<TopicAnalyticsResponseDTO>>> getAnalyticsOverview() {
-        return ResponseEntity.ok(ApiResponse.success("Analytics retrieved",
-                analyticsService.getAllTopicAnalytics()));
+    @Operation(summary = "Get aggregate platform performance analytics (Map vs AI Generated vs Combined) for Admins and Content Creators")
+    public ResponseEntity<ApiResponse<PlatformAnalyticsOverviewDTO>> getAnalyticsOverview() {
+        return ResponseEntity.ok(ApiResponse.success("Analytics retrieved successfully",
+                analyticsService.getPlatformAnalyticsOverview()));
     }
 
     // 8. Backoffice Module Analytics

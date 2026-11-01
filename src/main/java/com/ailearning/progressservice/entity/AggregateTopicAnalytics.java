@@ -36,6 +36,14 @@ public class AggregateTopicAnalytics {
     @Builder.Default
     private Integer totalCompletions = 0;
 
+    @Column(name = "map_activities_count")
+    @Builder.Default
+    private Integer mapActivitiesCount = 0;
+
+    @Column(name = "ai_generated_activities_count")
+    @Builder.Default
+    private Integer aiGeneratedActivitiesCount = 0;
+
     @Column(name = "average_score", precision = 5, scale = 2)
     @Builder.Default
     private BigDecimal averageScore = BigDecimal.ZERO;

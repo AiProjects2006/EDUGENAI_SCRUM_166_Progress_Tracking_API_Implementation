@@ -16,6 +16,8 @@ public class TopicAnalyticsResponseDTO {
     private String subjectName;
     private Integer totalAttempts;
     private Integer totalCompletions;
+    private Integer mapActivitiesCount;
+    private Integer aiGeneratedActivitiesCount;
     private BigDecimal averageScore;
     private Integer averageTimeSpentMins;
     private String difficultyRating;

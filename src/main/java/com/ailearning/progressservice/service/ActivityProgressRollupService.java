@@ -29,7 +29,7 @@ public class ActivityProgressRollupService {
     public void recordQuestLevelComplete(LevelCompleteRequestDTO req) {
         ModuleProgress mp = courseProgressService.getOrCreateModuleProgress(req.getUserId(), req.getCourseId(), req.getModuleId());
 
-        // 1. Dynamic total levels: use request value if provided, else use module value or default 6
+        // 1. Dynamic total levels (defaults to 6 if not passed)
         int totalLevels = (req.getTotalLevels() != null && req.getTotalLevels() > 0)
                 ? req.getTotalLevels()
                 : (mp.getTotalLevels() != null ? mp.getTotalLevels() : 6);
@@ -39,7 +39,7 @@ public class ActivityProgressRollupService {
         boolean isBoss = Boolean.TRUE.equals(req.getIsBossLevel()) || levelNum >= totalLevels;
 
         if (isBoss) {
-            // Boss / Final level: Cap at totalLevels (never advance to totalLevels + 1!)
+            // Boss / Final level: Cap at totalLevels (never advance past totalLevels!)
             mp.setCurrentLevelId(Math.min(levelNum, totalLevels));
             if (!Boolean.TRUE.equals(mp.getIsCompleted())) {
                 mp.setIsCompleted(true);
@@ -87,12 +87,22 @@ public class ActivityProgressRollupService {
         }
         moduleRepo.save(mp);
 
-        // 2. ALWAYS update ProgressSummary (every completed quest level counts as an activity done!)
+        // 2. Curriculum Quest Progress Rollup
         ProgressSummary ps = summaryRepo.findById(req.getUserId()).orElseGet(() ->
-                summaryRepo.save(ProgressSummary.builder().userId(req.getUserId()).activitiesDone(0).starsEarned(0).modulesCompleted(0).coursesCompleted(0).build()));
-        ps.setActivitiesDone(ps.getActivitiesDone() + 1);
+                summaryRepo.save(ProgressSummary.builder()
+                        .userId(req.getUserId())
+                        .activitiesDone(0)
+                        .starsEarned(0)
+                        .mapActivitiesDone(0)
+                        .practiceActivitiesDone(0)
+                        .questStarsEarned(0)
+                        .practiceStarsEarned(0)
+                        .modulesCompleted(0)
+                        .coursesCompleted(0)
+                        .build()));
+
         int stars = isBoss ? 15 : 5;
-        ps.setStarsEarned(ps.getStarsEarned() + stars);
+        ps.recordMapActivity(stars);
 
         if (isBoss) {
             ps.setModulesCompleted(ps.getModulesCompleted() + 1);
@@ -115,12 +125,17 @@ public class ActivityProgressRollupService {
 
         // 3. Save Record in ActivityProgressRecord
         BigDecimal score = req.getScorePercentage() != null ? req.getScorePercentage() : BigDecimal.valueOf(100);
+        String subjectName = (mp.getCourseProgress() != null && mp.getCourseProgress().getSubjectProgress() != null)
+                ? mp.getCourseProgress().getSubjectProgress().getSubjectName()
+                : "Mathematics";
+
         recordRepo.save(ActivityProgressRecord.builder()
                 .moduleProgress(mp)
                 .userId(req.getUserId())
                 .activityId(req.getModuleId() * 100 + levelNum)
                 .levelNumber(levelNum)
                 .activityType("CORE_MAP")
+                .subjectName(subjectName)
                 .scorePercentage(score)
                 .marksObtained(score)
                 .totalMarks(BigDecimal.valueOf(100))
@@ -129,17 +144,26 @@ public class ActivityProgressRollupService {
                 .build());
 
         // 4. Update Aggregate Topic Analytics
-        updateTopicAnalytics(req.getModuleId(), req.getCourseId(), score, isBoss);
+        updateTopicAnalytics(req.getModuleId(), req.getCourseId(), subjectName, score, true, isBoss);
     }
 
     @Transactional
     public void recordPracticeActivity(PracticeActivityRequestDTO req) {
         ProgressSummary ps = summaryRepo.findById(req.getUserId()).orElseGet(() ->
-                summaryRepo.save(ProgressSummary.builder().userId(req.getUserId()).activitiesDone(0).starsEarned(0).modulesCompleted(0).coursesCompleted(0).build()));
+                summaryRepo.save(ProgressSummary.builder()
+                        .userId(req.getUserId())
+                        .activitiesDone(0)
+                        .starsEarned(0)
+                        .mapActivitiesDone(0)
+                        .practiceActivitiesDone(0)
+                        .questStarsEarned(0)
+                        .practiceStarsEarned(0)
+                        .modulesCompleted(0)
+                        .coursesCompleted(0)
+                        .build()));
 
-        ps.setActivitiesDone(ps.getActivitiesDone() + 1);
         int stars = req.getStarsEarned() != null ? req.getStarsEarned() : 10;
-        ps.setStarsEarned(ps.getStarsEarned() + stars);
+        ps.recordPracticeActivity(stars);
 
         // Check badge unlocks
         if (ps.getStarsEarned() >= 30) {
@@ -153,16 +177,16 @@ public class ActivityProgressRollupService {
         }
         summaryRepo.save(ps);
 
-        // Boost subject progress by +5%
-        if (req.getSubjectName() != null) {
-            subjectRepo.findByProgressSummary_UserIdAndSubjectNameIgnoreCase(req.getUserId(), req.getSubjectName())
-                    .ifPresent(sp -> {
-                        BigDecimal newPct = sp.getCompletionPercentage().add(BigDecimal.valueOf(5)).min(BigDecimal.valueOf(100));
-                        sp.setCompletionPercentage(newPct);
-                        sp.setStarsEarned(sp.getStarsEarned() + stars);
-                        subjectRepo.save(sp);
-                    });
-        }
+        String subjectName = req.getSubjectName() != null ? req.getSubjectName() : "Mathematics";
+
+        // Boost subject progress by +2% (practice mastery bonus, does NOT complete course)
+        subjectRepo.findByProgressSummary_UserIdAndSubjectNameIgnoreCase(req.getUserId(), subjectName)
+                .ifPresent(sp -> {
+                    BigDecimal newPct = sp.getCompletionPercentage().add(BigDecimal.valueOf(2)).min(BigDecimal.valueOf(100));
+                    sp.setCompletionPercentage(newPct);
+                    sp.setStarsEarned(sp.getStarsEarned() + stars);
+                    subjectRepo.save(sp);
+                });
 
         // Save Record in ActivityProgressRecord
         BigDecimal score = req.getScorePercentage() != null ? req.getScorePercentage() : BigDecimal.valueOf(80);
@@ -170,6 +194,7 @@ public class ActivityProgressRollupService {
                 .userId(req.getUserId())
                 .activityId(req.getActivityId())
                 .activityType("AI_PRACTICE")
+                .subjectName(subjectName)
                 .scorePercentage(score)
                 .marksObtained(score)
                 .totalMarks(BigDecimal.valueOf(100))
@@ -189,22 +214,31 @@ public class ActivityProgressRollupService {
                 });
     }
 
-    private void updateTopicAnalytics(Long moduleId, Long courseId, BigDecimal score, boolean completed) {
+    private void updateTopicAnalytics(Long moduleId, Long courseId, String subjectName, BigDecimal score, boolean isMap, boolean completed) {
         AggregateTopicAnalytics analytics = analyticsRepo.findByModuleId(moduleId).orElseGet(() ->
                 AggregateTopicAnalytics.builder()
                         .moduleId(moduleId)
                         .courseId(courseId)
+                        .subjectName(subjectName)
                         .totalAttempts(0)
                         .totalCompletions(0)
+                        .mapActivitiesCount(0)
+                        .aiGeneratedActivitiesCount(0)
                         .averageScore(BigDecimal.ZERO)
                         .build());
 
-        int prevAttempts = analytics.getTotalAttempts();
+        int prevAttempts = analytics.getTotalAttempts() != null ? analytics.getTotalAttempts() : 0;
         int newAttempts = prevAttempts + 1;
         analytics.setTotalAttempts(newAttempts);
 
+        if (isMap) {
+            analytics.setMapActivitiesCount((analytics.getMapActivitiesCount() != null ? analytics.getMapActivitiesCount() : 0) + 1);
+        } else {
+            analytics.setAiGeneratedActivitiesCount((analytics.getAiGeneratedActivitiesCount() != null ? analytics.getAiGeneratedActivitiesCount() : 0) + 1);
+        }
+
         if (completed) {
-            analytics.setTotalCompletions(analytics.getTotalCompletions() + 1);
+            analytics.setTotalCompletions((analytics.getTotalCompletions() != null ? analytics.getTotalCompletions() : 0) + 1);
         }
 
         BigDecimal newAvg = analytics.getAverageScore().multiply(BigDecimal.valueOf(prevAttempts))

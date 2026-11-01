@@ -27,6 +27,10 @@ public class ProgressSummaryService {
                     .modulesCompleted(0)
                     .activitiesDone(0)
                     .starsEarned(0)
+                    .mapActivitiesDone(0)
+                    .practiceActivitiesDone(0)
+                    .questStarsEarned(0)
+                    .practiceStarsEarned(0)
                     .currentStreakDays(1)
                     .build();
             return summaryRepo.save(newSummary);
@@ -114,12 +118,21 @@ public class ProgressSummaryService {
                     b.getBadgeCode(), b.getBadgeName(), b.getIconUrl(), b.getIsEarned()));
         }
 
+        int mapDone = summary.getMapActivitiesDone() != null ? summary.getMapActivitiesDone() : summary.getActivitiesDone();
+        int practiceDone = summary.getPracticeActivitiesDone() != null ? summary.getPracticeActivitiesDone() : 0;
+        int questStars = summary.getQuestStarsEarned() != null ? summary.getQuestStarsEarned() : summary.getStarsEarned();
+        int practiceStars = summary.getPracticeStarsEarned() != null ? summary.getPracticeStarsEarned() : 0;
+
         return ProgressSummaryResponseDTO.builder()
                 .userId(summary.getUserId())
                 .coursesCompleted(summary.getCoursesCompleted())
                 .modulesCompleted(summary.getModulesCompleted())
-                .activitiesDone(summary.getActivitiesDone())
-                .starsEarned(summary.getStarsEarned())
+                .activitiesDone(mapDone + practiceDone) // Combined
+                .starsEarned(questStars + practiceStars) // Combined
+                .mapActivitiesDone(mapDone)
+                .practiceActivitiesDone(practiceDone)
+                .questStarsEarned(questStars)
+                .practiceStarsEarned(practiceStars)
                 .currentStreakDays(summary.getCurrentStreakDays())
                 .averageScore(summary.getAverageScore())
                 .subjectProgress(subjectMap)
