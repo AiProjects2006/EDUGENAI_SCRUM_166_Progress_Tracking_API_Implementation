@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface ActivityProgressRecordRepository extends JpaRepository<ActivityProgressRecord, Long> {
     List<ActivityProgressRecord> findByUserId(Long userId);
+    List<ActivityProgressRecord> findByActivityType(String activityType);
+    long countByActivityType(String activityType);
 }

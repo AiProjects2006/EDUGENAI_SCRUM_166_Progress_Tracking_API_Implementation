@@ -38,6 +38,9 @@ public class ActivityProgressRecord {
     @Builder.Default
     private String activityType = "CORE_MAP"; // CORE_MAP or AI_PRACTICE
 
+    @Column(name = "subject_name", length = 50)
+    private String subjectName; // e.g. "Mathematics", "ICT", "Environmental Studies"
+
     @Column(name = "score_percentage", precision = 5, scale = 2, nullable = false)
     private BigDecimal scorePercentage;
 

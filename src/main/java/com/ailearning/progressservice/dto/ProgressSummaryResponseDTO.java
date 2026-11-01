@@ -12,12 +12,21 @@ import java.util.List;
 @Builder
 public class ProgressSummaryResponseDTO {
     private Long userId;
+
+    // Combined & High-Level (Matches UI Progress.jsx)
     private Integer coursesCompleted;
     private Integer modulesCompleted;
-    private Integer activitiesDone;
-    private Integer starsEarned;
+    private Integer activitiesDone;        // Combined (map + practice)
+    private Integer starsEarned;           // Combined (quest + practice)
     private Integer currentStreakDays;
     private BigDecimal averageScore;
+
+    // Dual Tracking Breakdown (Curriculum vs AI Practice)
+    private Integer mapActivitiesDone;
+    private Integer practiceActivitiesDone;
+    private Integer questStarsEarned;
+    private Integer practiceStarsEarned;
+
     private Map<String, SubjectDetailDTO> subjectProgress;
     private List<BadgeDTO> badges;
 

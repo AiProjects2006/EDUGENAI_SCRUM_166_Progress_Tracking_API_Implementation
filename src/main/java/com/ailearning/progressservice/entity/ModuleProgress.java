@@ -36,7 +36,11 @@ public class ModuleProgress {
 
     @Column(name = "current_level_id")
     @Builder.Default
-    private Integer currentLevelId = 1; // 1 to 6 on Island Quest Map
+    private Integer currentLevelId = 1; // 1 to totalLevels on Island Quest Map
+
+    @Column(name = "total_levels")
+    @Builder.Default
+    private Integer totalLevels = 6;
 
     @Column(name = "is_completed")
     @Builder.Default
