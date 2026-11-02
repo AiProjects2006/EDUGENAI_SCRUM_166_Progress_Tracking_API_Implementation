@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface StudentBadgeRepository extends JpaRepository<StudentBadge, Long> {
     List<StudentBadge> findByProgressSummary_UserId(Long userId);
     Optional<StudentBadge> findByBadgeCodeAndProgressSummary_UserId(String badgeCode, Long userId);
+    long countByIsEarnedTrue();
 }

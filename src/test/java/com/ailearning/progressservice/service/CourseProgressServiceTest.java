@@ -126,3 +126,4 @@ class CourseProgressServiceTest {
         assertEquals("CORE_MAP", result.get(0).getActivityType());
     }
 }
+

@@ -23,3 +23,4 @@ public class ActivityRecordResponseDTO {
     private Integer timeSpentMins;
     private LocalDateTime completedAt;
 }
+

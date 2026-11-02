@@ -114,4 +114,20 @@ public class ProgressController {
                 .map(a -> ResponseEntity.ok(ApiResponse.success("Module analytics retrieved", a)))
                 .orElse(ResponseEntity.ok(ApiResponse.error("No analytics found for this module")));
     }
+
+    // 10. Content Creator: Student Engagement Analytics
+    @GetMapping("/analytics/creator/engagement")
+    @Operation(summary = "Get Content Creator student engagement analytics (real-time interaction tracking for Middle School)")
+    public ResponseEntity<ApiResponse<CreatorStudentEngagementDTO>> getCreatorStudentEngagement() {
+        return ResponseEntity.ok(ApiResponse.success("Student engagement analytics retrieved successfully",
+                analyticsService.getCreatorStudentEngagement()));
+    }
+
+    // 11. Content Creator: Analytics & Reports Overview
+    @GetMapping("/analytics/creator/reports")
+    @Operation(summary = "Get Content Creator analytics & reports data (curriculum effectiveness, grade distribution, learning minutes)")
+    public ResponseEntity<ApiResponse<CreatorAnalyticsReportsDTO>> getCreatorAnalyticsReports() {
+        return ResponseEntity.ok(ApiResponse.success("Analytics & reports data retrieved successfully",
+                analyticsService.getCreatorAnalyticsReports()));
+    }
 }

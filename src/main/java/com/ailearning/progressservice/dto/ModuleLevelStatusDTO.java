@@ -17,3 +17,4 @@ public class ModuleLevelStatusDTO {
     private BigDecimal scorePercentage;
     private Integer timeSpentMins;
 }
+
