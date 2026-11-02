@@ -52,6 +52,16 @@ public class ProgressController {
                 courseProgressService.getModuleProgress(userId, moduleId)));
     }
 
+    // 3b. Module Levels Breakdown for Island Map (Level 1 to 6 stars, scores & locked status)
+    @GetMapping("/modules/{moduleId}/user/{userId}/levels")
+    @Operation(summary = "Get level-by-level status, stars, and scores for Island Quest Map")
+    public ResponseEntity<ApiResponse<List<ModuleLevelStatusDTO>>> getModuleLevels(
+            @PathVariable Long moduleId,
+            @PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success("Module levels retrieved",
+                courseProgressService.getModuleLevels(userId, moduleId)));
+    }
+
     // 4. Badges
     @GetMapping("/badges/user/{userId}")
     @Operation(summary = "Get badges earned and locked for student")
@@ -60,7 +70,19 @@ public class ProgressController {
                 badgeService.getStudentBadges(userId)));
     }
 
-    // 5. Submit Island Quest Map Level (Beating Level 6 completes Module & rolls up)
+    // 5. Student Completed Activities & Scores Retrieval (Task 3: Progress Retrieval)
+    @GetMapping("/activities/user/{userId}")
+    @Operation(summary = "Retrieve student completed activities, scores, marks, and status (filter by type or subject)")
+    public ResponseEntity<ApiResponse<List<ActivityRecordResponseDTO>>> getStudentActivityHistory(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String subject,
+            @RequestParam(required = false) Integer limit) {
+        return ResponseEntity.ok(ApiResponse.success("Completed activities retrieved successfully",
+                courseProgressService.getStudentActivityHistory(userId, type, subject, limit)));
+    }
+
+    // 6. Submit Island Quest Map Level (Beating Level 6 completes Module & rolls up)
     @PostMapping("/activity-map/level-complete")
     @Operation(summary = "Record Island Quest Map level completion (Beating Level 6 Boss completes module)")
     public ResponseEntity<ApiResponse<String>> completeQuestLevel(@Valid @RequestBody LevelCompleteRequestDTO dto) {
@@ -68,7 +90,7 @@ public class ProgressController {
         return ResponseEntity.ok(ApiResponse.success("Quest level recorded and progress updated successfully", null));
     }
 
-    // 6. Submit AI Practice Quiz Activity
+    // 7. Submit AI Practice Quiz Activity
     @PostMapping("/record")
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
     public ResponseEntity<ApiResponse<String>> recordPracticeActivity(@Valid @RequestBody PracticeActivityRequestDTO dto) {
@@ -76,7 +98,7 @@ public class ProgressController {
         return ResponseEntity.ok(ApiResponse.success("Practice activity recorded and stars awarded successfully", null));
     }
 
-    // 7. Backoffice Analytics Overview for Creators & Admins (Map vs Generated vs Combined)
+    // 8. Backoffice Analytics Overview for Creators & Admins (Map vs Generated vs Combined)
     @GetMapping("/analytics/overview")
     @Operation(summary = "Get aggregate platform performance analytics (Map vs AI Generated vs Combined) for Admins and Content Creators")
     public ResponseEntity<ApiResponse<PlatformAnalyticsOverviewDTO>> getAnalyticsOverview() {
@@ -84,7 +106,7 @@ public class ProgressController {
                 analyticsService.getPlatformAnalyticsOverview()));
     }
 
-    // 8. Backoffice Module Analytics
+    // 9. Backoffice Module Analytics
     @GetMapping("/analytics/module/{moduleId}")
     @Operation(summary = "Get analytics for a specific module")
     public ResponseEntity<ApiResponse<TopicAnalyticsResponseDTO>> getModuleAnalytics(@PathVariable Long moduleId) {
