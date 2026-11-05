@@ -35,6 +35,19 @@ public class ActivityProgressRollupService {
                 : (mp.getTotalLevels() != null ? mp.getTotalLevels() : 6);
         mp.setTotalLevels(totalLevels);
 
+        // Bind dynamic total modules & subject if provided
+        CourseProgress cp = mp.getCourseProgress();
+        if (cp != null) {
+            if (req.getTotalModules() != null && req.getTotalModules() > 0) {
+                cp.setTotalModules(req.getTotalModules());
+            }
+            if (req.getSubjectName() != null && !req.getSubjectName().isBlank()) {
+                subjectRepo.findByProgressSummary_UserIdAndSubjectNameIgnoreCase(req.getUserId(), req.getSubjectName())
+                        .ifPresent(cp::setSubjectProgress);
+            }
+            courseRepo.save(cp);
+        }
+
         int levelNum = req.getLevelNumber() != null ? req.getLevelNumber() : 1;
         boolean isBoss = Boolean.TRUE.equals(req.getIsBossLevel()) || levelNum >= totalLevels;
 
@@ -48,8 +61,10 @@ public class ActivityProgressRollupService {
                 mp.setTimeSpentMins(mp.getTimeSpentMins() + spent);
 
                 // Rollup to Course Progress
-                CourseProgress cp = mp.getCourseProgress();
                 if (cp != null) {
+                    if (req.getTotalModules() != null && req.getTotalModules() > 0) {
+                        cp.setTotalModules(req.getTotalModules());
+                    }
                     cp.setCompletedModules(cp.getCompletedModules() + 1);
                     if (cp.getTotalModules() > 0) {
                         BigDecimal pct = BigDecimal.valueOf(cp.getCompletedModules())
@@ -64,14 +79,19 @@ public class ActivityProgressRollupService {
 
                     // Rollup to Subject Progress
                     SubjectProgress sp = cp.getSubjectProgress();
-                    if (sp != null && sp.getTotalCourses() > 0) {
+                    if (sp != null) {
+                        if (req.getTotalCourses() != null && req.getTotalCourses() > 0) {
+                            sp.setTotalCourses(req.getTotalCourses());
+                        }
                         if ("COMPLETED".equals(cp.getStatus())) {
                             sp.setCompletedCourses(sp.getCompletedCourses() + 1);
                         }
-                        BigDecimal subPct = BigDecimal.valueOf(sp.getCompletedCourses())
-                                .divide(BigDecimal.valueOf(sp.getTotalCourses()), 4, RoundingMode.HALF_UP)
-                                .multiply(BigDecimal.valueOf(100));
-                        sp.setCompletionPercentage(subPct);
+                        if (sp.getTotalCourses() > 0) {
+                            BigDecimal subPct = BigDecimal.valueOf(sp.getCompletedCourses())
+                                    .divide(BigDecimal.valueOf(sp.getTotalCourses()), 4, RoundingMode.HALF_UP)
+                                    .multiply(BigDecimal.valueOf(100));
+                            sp.setCompletionPercentage(subPct);
+                        }
                         subjectRepo.save(sp);
                     }
                 }
@@ -106,7 +126,7 @@ public class ActivityProgressRollupService {
 
         if (isBoss) {
             ps.setModulesCompleted(ps.getModulesCompleted() + 1);
-            if (mp.getCourseProgress() != null && "COMPLETED".equals(mp.getCourseProgress().getStatus())) {
+            if (cp != null && "COMPLETED".equals(cp.getStatus())) {
                 ps.setCoursesCompleted(ps.getCoursesCompleted() + 1);
             }
         }
@@ -125,9 +145,11 @@ public class ActivityProgressRollupService {
 
         // 3. Save Record in ActivityProgressRecord
         BigDecimal score = req.getScorePercentage() != null ? req.getScorePercentage() : BigDecimal.valueOf(100);
-        String subjectName = (mp.getCourseProgress() != null && mp.getCourseProgress().getSubjectProgress() != null)
+        String subjectName = (req.getSubjectName() != null && !req.getSubjectName().isBlank())
+                ? req.getSubjectName()
+                : ((mp.getCourseProgress() != null && mp.getCourseProgress().getSubjectProgress() != null)
                 ? mp.getCourseProgress().getSubjectProgress().getSubjectName()
-                : "Mathematics";
+                : "Mathematics");
 
         recordRepo.save(ActivityProgressRecord.builder()
                 .moduleProgress(mp)

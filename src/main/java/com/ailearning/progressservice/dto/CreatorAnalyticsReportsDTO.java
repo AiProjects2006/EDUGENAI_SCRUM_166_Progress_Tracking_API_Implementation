@@ -85,3 +85,4 @@ public class CreatorAnalyticsReportsDTO {
         private Long minutes;                     // Total minutes spent
     }
 }
+
