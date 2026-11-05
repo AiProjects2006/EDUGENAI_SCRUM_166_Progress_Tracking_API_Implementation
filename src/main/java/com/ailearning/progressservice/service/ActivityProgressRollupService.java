@@ -13,6 +13,8 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -168,8 +170,19 @@ public class ActivityProgressRollupService {
                         .coursesCompleted(0)
                         .build()));
 
+        // Check if this level was already completed for this user and module
+        List<ActivityProgressRecord> existingRecords = recordRepo.findByUserIdAndModuleProgress_ModuleId(req.getUserId(), req.getModuleId());
+        if (existingRecords == null) {
+            existingRecords = new ArrayList<>();
+        }
+        boolean isFirstLevelAttempt = existingRecords.stream()
+                .noneMatch(r -> Objects.equals(r.getLevelNumber(), levelNum));
+
         int stars = isBoss ? 15 : 5;
-        ps.recordMapActivity(stars);
+
+        if (isFirstLevelAttempt) {
+            ps.recordMapActivity(stars);
+        }
 
         if (isBoss && isFirstCompletion) {
             ps.setModulesCompleted(ps.getModulesCompleted() + 1);
@@ -196,7 +209,7 @@ public class ActivityProgressRollupService {
         }
         summaryRepo.save(ps);
 
-        // 3. Save Record in ActivityProgressRecord
+        // 3. Save or Update Record in ActivityProgressRecord
         BigDecimal score = req.getScorePercentage() != null ? req.getScorePercentage() : BigDecimal.valueOf(100);
         String subjectName = (req.getSubjectName() != null && !req.getSubjectName().isBlank())
                 ? req.getSubjectName()
@@ -204,19 +217,36 @@ public class ActivityProgressRollupService {
                 ? mp.getCourseProgress().getSubjectProgress().getSubjectName()
                 : "Mathematics");
 
-        recordRepo.save(ActivityProgressRecord.builder()
-                .moduleProgress(mp)
-                .userId(req.getUserId())
-                .activityId(req.getModuleId() * 100 + levelNum)
-                .levelNumber(levelNum)
-                .activityType("CORE_MAP")
-                .subjectName(subjectName)
-                .scorePercentage(score)
-                .marksObtained(score)
-                .totalMarks(BigDecimal.valueOf(100))
-                .timeSpentMins(req.getTimeSpentMins() != null ? req.getTimeSpentMins() : 3)
-                .isPassed(score.compareTo(BigDecimal.valueOf(60)) >= 0)
-                .build());
+        Optional<ActivityProgressRecord> existingRec = existingRecords.stream()
+                .filter(r -> Objects.equals(r.getLevelNumber(), levelNum))
+                .findFirst();
+
+        if (existingRec.isPresent()) {
+            ActivityProgressRecord r = existingRec.get();
+            if (score.compareTo(r.getScorePercentage() != null ? r.getScorePercentage() : BigDecimal.ZERO) > 0) {
+                r.setScorePercentage(score);
+                r.setMarksObtained(score);
+                r.setIsPassed(score.compareTo(BigDecimal.valueOf(60)) >= 0);
+            }
+            int spent = req.getTimeSpentMins() != null ? req.getTimeSpentMins() : 3;
+            r.setTimeSpentMins((r.getTimeSpentMins() != null ? r.getTimeSpentMins() : 0) + spent);
+            r.setCompletedAt(LocalDateTime.now());
+            recordRepo.save(r);
+        } else {
+            recordRepo.save(ActivityProgressRecord.builder()
+                    .moduleProgress(mp)
+                    .userId(req.getUserId())
+                    .activityId(req.getModuleId() * 100 + levelNum)
+                    .levelNumber(levelNum)
+                    .activityType("CORE_MAP")
+                    .subjectName(subjectName)
+                    .scorePercentage(score)
+                    .marksObtained(score)
+                    .totalMarks(BigDecimal.valueOf(100))
+                    .timeSpentMins(req.getTimeSpentMins() != null ? req.getTimeSpentMins() : 3)
+                    .isPassed(score.compareTo(BigDecimal.valueOf(60)) >= 0)
+                    .build());
+        }
 
         // 4. Update Aggregate Topic Analytics
         updateTopicAnalytics(req.getModuleId(), req.getCourseId(), subjectName, score, true, isBoss);
