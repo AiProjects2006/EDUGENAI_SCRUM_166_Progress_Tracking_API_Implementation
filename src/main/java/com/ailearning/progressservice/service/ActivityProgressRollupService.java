@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -50,11 +52,13 @@ public class ActivityProgressRollupService {
 
         int levelNum = req.getLevelNumber() != null ? req.getLevelNumber() : 1;
         boolean isBoss = Boolean.TRUE.equals(req.getIsBossLevel()) || levelNum >= totalLevels;
+        boolean isFirstCompletion = false;
 
         if (isBoss) {
             // Boss / Final level: Cap at totalLevels (never advance past totalLevels!)
             mp.setCurrentLevelId(Math.min(levelNum, totalLevels));
-            if (!Boolean.TRUE.equals(mp.getIsCompleted())) {
+            isFirstCompletion = !Boolean.TRUE.equals(mp.getIsCompleted());
+            if (isFirstCompletion) {
                 mp.setIsCompleted(true);
                 mp.setCompletedAt(LocalDateTime.now());
                 int spent = req.getTimeSpentMins() != null ? req.getTimeSpentMins() : 5;
@@ -79,19 +83,62 @@ public class ActivityProgressRollupService {
 
                     // Rollup to Subject Progress
                     SubjectProgress sp = cp.getSubjectProgress();
+                    if (sp == null && req.getSubjectName() != null && !req.getSubjectName().isBlank()) {
+                        sp = subjectRepo.findByProgressSummary_UserIdAndSubjectNameIgnoreCase(req.getUserId(), req.getSubjectName()).orElse(null);
+                        if (sp != null) {
+                            cp.setSubjectProgress(sp);
+                        }
+                    }
+
                     if (sp != null) {
                         if (req.getTotalCourses() != null && req.getTotalCourses() > 0) {
                             sp.setTotalCourses(req.getTotalCourses());
                         }
-                        if ("COMPLETED".equals(cp.getStatus())) {
-                            sp.setCompletedCourses(sp.getCompletedCourses() + 1);
+
+                        // Collect courses for this user and subject to compute overall subject mastery
+                        List<CourseProgress> userCourses = courseRepo.findByUserId(req.getUserId());
+                        if (userCourses == null) {
+                            userCourses = new java.util.ArrayList<>();
                         }
-                        if (sp.getTotalCourses() > 0) {
-                            BigDecimal subPct = BigDecimal.valueOf(sp.getCompletedCourses())
-                                    .divide(BigDecimal.valueOf(sp.getTotalCourses()), 4, RoundingMode.HALF_UP)
-                                    .multiply(BigDecimal.valueOf(100));
-                            sp.setCompletionPercentage(subPct);
+                        boolean hasCurrent = false;
+                        for (CourseProgress c : userCourses) {
+                            if (c.getCourseId() != null && c.getCourseId().equals(cp.getCourseId())) {
+                                hasCurrent = true;
+                                break;
+                            }
                         }
+                        if (!hasCurrent) {
+                            userCourses.add(cp);
+                        }
+
+                        final Long targetSubjectId = sp.getSubjectProgressId();
+                        List<CourseProgress> subjectCourses = userCourses.stream()
+                                .filter(c -> c.getSubjectProgress() != null &&
+                                        c.getSubjectProgress().getSubjectProgressId() != null &&
+                                        c.getSubjectProgress().getSubjectProgressId().equals(targetSubjectId))
+                                .toList();
+
+                        if (subjectCourses.isEmpty()) {
+                            subjectCourses = List.of(cp);
+                        }
+
+                        int completedCoursesCount = (int) subjectCourses.stream()
+                                .filter(c -> "COMPLETED".equalsIgnoreCase(c.getStatus()))
+                                .count();
+                        sp.setCompletedCourses(completedCoursesCount);
+
+                        // Subject percentage is proportional to progress made across all subject courses
+                        int totalCourses = sp.getTotalCourses() != null && sp.getTotalCourses() > 0 ? sp.getTotalCourses() : 1;
+                        BigDecimal totalCoursePct = BigDecimal.ZERO;
+                        for (CourseProgress c : subjectCourses) {
+                            if (c.getCompletionPercentage() != null) {
+                                totalCoursePct = totalCoursePct.add(c.getCompletionPercentage());
+                            }
+                        }
+                        BigDecimal subPct = totalCoursePct
+                                .divide(BigDecimal.valueOf(totalCourses), 2, RoundingMode.HALF_UP)
+                                .min(BigDecimal.valueOf(100));
+                        sp.setCompletionPercentage(subPct);
                         subjectRepo.save(sp);
                     }
                 }
@@ -124,10 +171,16 @@ public class ActivityProgressRollupService {
         int stars = isBoss ? 15 : 5;
         ps.recordMapActivity(stars);
 
-        if (isBoss) {
+        if (isBoss && isFirstCompletion) {
             ps.setModulesCompleted(ps.getModulesCompleted() + 1);
-            if (cp != null && "COMPLETED".equals(cp.getStatus())) {
-                ps.setCoursesCompleted(ps.getCoursesCompleted() + 1);
+            if (cp != null) {
+                int totalCompleted = (int) courseRepo.findByUserId(req.getUserId()).stream()
+                        .filter(c -> "COMPLETED".equalsIgnoreCase(c.getStatus()))
+                        .count();
+                if ("COMPLETED".equalsIgnoreCase(cp.getStatus()) && totalCompleted == 0) {
+                    totalCompleted = 1;
+                }
+                ps.setCoursesCompleted(Math.max(ps.getCoursesCompleted(), totalCompleted));
             }
         }
 
