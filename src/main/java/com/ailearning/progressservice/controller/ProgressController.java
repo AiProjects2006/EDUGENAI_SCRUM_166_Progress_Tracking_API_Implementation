@@ -2,6 +2,7 @@ package com.ailearning.progressservice.controller;
 
 import com.ailearning.progressservice.dto.*;
 import com.ailearning.progressservice.service.ActivityProgressRollupService;
+import com.ailearning.progressservice.service.CourseProgressService;
 import com.ailearning.progressservice.service.ProgressSummaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,12 +19,22 @@ public class ProgressController {
 
     private final ActivityProgressRollupService rollupService;
     private final ProgressSummaryService summaryService;
+    private final CourseProgressService courseProgressService;
 
     @Operation(summary = "Get full student progress summary for Student UI dashboard")
     @GetMapping("/summary/user/{userId}")
     public ResponseEntity<ApiResponse<ProgressSummaryResponseDTO>> getProgressSummary(@PathVariable Long userId) {
         return ResponseEntity.ok(ApiResponse.success("Progress retrieved successfully",
                 summaryService.getStudentProgressDashboard(userId)));
+    }
+
+    @Operation(summary = "Get module progress including Island Quest Map current level")
+    @GetMapping("/modules/{moduleId}/user/{userId}")
+    public ResponseEntity<ApiResponse<ModuleProgressResponseDTO>> getModuleProgress(
+            @PathVariable Long moduleId,
+            @PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success("Module progress retrieved",
+                courseProgressService.getModuleProgress(userId, moduleId)));
     }
 
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
