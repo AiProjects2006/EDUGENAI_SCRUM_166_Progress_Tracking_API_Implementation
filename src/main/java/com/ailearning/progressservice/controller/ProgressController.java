@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/progress")
 @RequiredArgsConstructor
@@ -35,6 +37,15 @@ public class ProgressController {
             @PathVariable Long userId) {
         return ResponseEntity.ok(ApiResponse.success("Module progress retrieved",
                 courseProgressService.getModuleProgress(userId, moduleId)));
+    }
+
+    @Operation(summary = "Get level-by-level status, stars, and scores for Island Quest Map")
+    @GetMapping("/modules/{moduleId}/user/{userId}/levels")
+    public ResponseEntity<ApiResponse<List<ModuleLevelStatusDTO>>> getModuleLevels(
+            @PathVariable Long moduleId,
+            @PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success("Module levels retrieved",
+                courseProgressService.getModuleLevels(userId, moduleId)));
     }
 
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
