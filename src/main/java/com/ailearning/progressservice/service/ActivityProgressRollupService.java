@@ -11,6 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -35,21 +39,38 @@ public class ActivityProgressRollupService {
                 : (mp.getTotalLevels() != null ? mp.getTotalLevels() : 6);
         mp.setTotalLevels(totalLevels);
 
+        // Bind dynamic total modules & subject if provided
+        CourseProgress cp = mp.getCourseProgress();
+        if (cp != null) {
+            if (req.getTotalModules() != null && req.getTotalModules() > 0) {
+                cp.setTotalModules(req.getTotalModules());
+            }
+            if (req.getSubjectName() != null && !req.getSubjectName().isBlank()) {
+                subjectRepo.findByProgressSummary_UserIdAndSubjectNameIgnoreCase(req.getUserId(), req.getSubjectName())
+                        .ifPresent(cp::setSubjectProgress);
+            }
+            courseRepo.save(cp);
+        }
+
         int levelNum = req.getLevelNumber() != null ? req.getLevelNumber() : 1;
         boolean isBoss = Boolean.TRUE.equals(req.getIsBossLevel()) || levelNum >= totalLevels;
+        boolean isFirstCompletion = false;
 
         if (isBoss) {
             // Boss / Final level: Cap at totalLevels (never advance past totalLevels!)
             mp.setCurrentLevelId(Math.min(levelNum, totalLevels));
-            if (!Boolean.TRUE.equals(mp.getIsCompleted())) {
+            isFirstCompletion = !Boolean.TRUE.equals(mp.getIsCompleted());
+            if (isFirstCompletion) {
                 mp.setIsCompleted(true);
                 mp.setCompletedAt(LocalDateTime.now());
                 int spent = req.getTimeSpentMins() != null ? req.getTimeSpentMins() : 5;
                 mp.setTimeSpentMins(mp.getTimeSpentMins() + spent);
 
                 // Rollup to Course Progress
-                CourseProgress cp = mp.getCourseProgress();
                 if (cp != null) {
+                    if (req.getTotalModules() != null && req.getTotalModules() > 0) {
+                        cp.setTotalModules(req.getTotalModules());
+                    }
                     cp.setCompletedModules(cp.getCompletedModules() + 1);
                     if (cp.getTotalModules() > 0) {
                         BigDecimal pct = BigDecimal.valueOf(cp.getCompletedModules())
@@ -64,13 +85,61 @@ public class ActivityProgressRollupService {
 
                     // Rollup to Subject Progress
                     SubjectProgress sp = cp.getSubjectProgress();
-                    if (sp != null && sp.getTotalCourses() > 0) {
-                        if ("COMPLETED".equals(cp.getStatus())) {
-                            sp.setCompletedCourses(sp.getCompletedCourses() + 1);
+                    if (sp == null && req.getSubjectName() != null && !req.getSubjectName().isBlank()) {
+                        sp = subjectRepo.findByProgressSummary_UserIdAndSubjectNameIgnoreCase(req.getUserId(), req.getSubjectName()).orElse(null);
+                        if (sp != null) {
+                            cp.setSubjectProgress(sp);
                         }
-                        BigDecimal subPct = BigDecimal.valueOf(sp.getCompletedCourses())
-                                .divide(BigDecimal.valueOf(sp.getTotalCourses()), 4, RoundingMode.HALF_UP)
-                                .multiply(BigDecimal.valueOf(100));
+                    }
+
+                    if (sp != null) {
+                        if (req.getTotalCourses() != null && req.getTotalCourses() > 0) {
+                            sp.setTotalCourses(req.getTotalCourses());
+                        }
+
+                        // Collect courses for this user and subject to compute overall subject mastery
+                        List<CourseProgress> userCourses = courseRepo.findByUserId(req.getUserId());
+                        if (userCourses == null) {
+                            userCourses = new java.util.ArrayList<>();
+                        }
+                        boolean hasCurrent = false;
+                        for (CourseProgress c : userCourses) {
+                            if (c.getCourseId() != null && c.getCourseId().equals(cp.getCourseId())) {
+                                hasCurrent = true;
+                                break;
+                            }
+                        }
+                        if (!hasCurrent) {
+                            userCourses.add(cp);
+                        }
+
+                        final Long targetSubjectId = sp.getSubjectProgressId();
+                        List<CourseProgress> subjectCourses = userCourses.stream()
+                                .filter(c -> c.getSubjectProgress() != null &&
+                                        c.getSubjectProgress().getSubjectProgressId() != null &&
+                                        c.getSubjectProgress().getSubjectProgressId().equals(targetSubjectId))
+                                .toList();
+
+                        if (subjectCourses.isEmpty()) {
+                            subjectCourses = List.of(cp);
+                        }
+
+                        int completedCoursesCount = (int) subjectCourses.stream()
+                                .filter(c -> "COMPLETED".equalsIgnoreCase(c.getStatus()))
+                                .count();
+                        sp.setCompletedCourses(completedCoursesCount);
+
+                        // Subject percentage is proportional to progress made across all subject courses
+                        int totalCourses = sp.getTotalCourses() != null && sp.getTotalCourses() > 0 ? sp.getTotalCourses() : 1;
+                        BigDecimal totalCoursePct = BigDecimal.ZERO;
+                        for (CourseProgress c : subjectCourses) {
+                            if (c.getCompletionPercentage() != null) {
+                                totalCoursePct = totalCoursePct.add(c.getCompletionPercentage());
+                            }
+                        }
+                        BigDecimal subPct = totalCoursePct
+                                .divide(BigDecimal.valueOf(totalCourses), 2, RoundingMode.HALF_UP)
+                                .min(BigDecimal.valueOf(100));
                         sp.setCompletionPercentage(subPct);
                         subjectRepo.save(sp);
                     }
@@ -101,13 +170,30 @@ public class ActivityProgressRollupService {
                         .coursesCompleted(0)
                         .build()));
 
-        int stars = isBoss ? 15 : 5;
-        ps.recordMapActivity(stars);
+        // Check if this level was already completed for this user and module
+        List<ActivityProgressRecord> existingRecords = recordRepo.findByUserIdAndModuleProgress_ModuleId(req.getUserId(), req.getModuleId());
+        if (existingRecords == null) {
+            existingRecords = new ArrayList<>();
+        }
+        boolean isFirstLevelAttempt = existingRecords.stream()
+                .noneMatch(r -> Objects.equals(r.getLevelNumber(), levelNum));
 
-        if (isBoss) {
+        int stars = isBoss ? 15 : 5;
+
+        if (isFirstLevelAttempt) {
+            ps.recordMapActivity(stars);
+        }
+
+        if (isBoss && isFirstCompletion) {
             ps.setModulesCompleted(ps.getModulesCompleted() + 1);
-            if (mp.getCourseProgress() != null && "COMPLETED".equals(mp.getCourseProgress().getStatus())) {
-                ps.setCoursesCompleted(ps.getCoursesCompleted() + 1);
+            if (cp != null) {
+                int totalCompleted = (int) courseRepo.findByUserId(req.getUserId()).stream()
+                        .filter(c -> "COMPLETED".equalsIgnoreCase(c.getStatus()))
+                        .count();
+                if ("COMPLETED".equalsIgnoreCase(cp.getStatus()) && totalCompleted == 0) {
+                    totalCompleted = 1;
+                }
+                ps.setCoursesCompleted(Math.max(ps.getCoursesCompleted(), totalCompleted));
             }
         }
 
@@ -123,25 +209,44 @@ public class ActivityProgressRollupService {
         }
         summaryRepo.save(ps);
 
-        // 3. Save Record in ActivityProgressRecord
+        // 3. Save or Update Record in ActivityProgressRecord
         BigDecimal score = req.getScorePercentage() != null ? req.getScorePercentage() : BigDecimal.valueOf(100);
-        String subjectName = (mp.getCourseProgress() != null && mp.getCourseProgress().getSubjectProgress() != null)
+        String subjectName = (req.getSubjectName() != null && !req.getSubjectName().isBlank())
+                ? req.getSubjectName()
+                : ((mp.getCourseProgress() != null && mp.getCourseProgress().getSubjectProgress() != null)
                 ? mp.getCourseProgress().getSubjectProgress().getSubjectName()
-                : "Mathematics";
+                : "Mathematics");
 
-        recordRepo.save(ActivityProgressRecord.builder()
-                .moduleProgress(mp)
-                .userId(req.getUserId())
-                .activityId(req.getModuleId() * 100 + levelNum)
-                .levelNumber(levelNum)
-                .activityType("CORE_MAP")
-                .subjectName(subjectName)
-                .scorePercentage(score)
-                .marksObtained(score)
-                .totalMarks(BigDecimal.valueOf(100))
-                .timeSpentMins(req.getTimeSpentMins() != null ? req.getTimeSpentMins() : 3)
-                .isPassed(score.compareTo(BigDecimal.valueOf(60)) >= 0)
-                .build());
+        Optional<ActivityProgressRecord> existingRec = existingRecords.stream()
+                .filter(r -> Objects.equals(r.getLevelNumber(), levelNum))
+                .findFirst();
+
+        if (existingRec.isPresent()) {
+            ActivityProgressRecord r = existingRec.get();
+            if (score.compareTo(r.getScorePercentage() != null ? r.getScorePercentage() : BigDecimal.ZERO) > 0) {
+                r.setScorePercentage(score);
+                r.setMarksObtained(score);
+                r.setIsPassed(score.compareTo(BigDecimal.valueOf(60)) >= 0);
+            }
+            int spent = req.getTimeSpentMins() != null ? req.getTimeSpentMins() : 3;
+            r.setTimeSpentMins((r.getTimeSpentMins() != null ? r.getTimeSpentMins() : 0) + spent);
+            r.setCompletedAt(LocalDateTime.now());
+            recordRepo.save(r);
+        } else {
+            recordRepo.save(ActivityProgressRecord.builder()
+                    .moduleProgress(mp)
+                    .userId(req.getUserId())
+                    .activityId(req.getModuleId() * 100 + levelNum)
+                    .levelNumber(levelNum)
+                    .activityType("CORE_MAP")
+                    .subjectName(subjectName)
+                    .scorePercentage(score)
+                    .marksObtained(score)
+                    .totalMarks(BigDecimal.valueOf(100))
+                    .timeSpentMins(req.getTimeSpentMins() != null ? req.getTimeSpentMins() : 3)
+                    .isPassed(score.compareTo(BigDecimal.valueOf(60)) >= 0)
+                    .build());
+        }
 
         // 4. Update Aggregate Topic Analytics
         updateTopicAnalytics(req.getModuleId(), req.getCourseId(), subjectName, score, true, isBoss);
