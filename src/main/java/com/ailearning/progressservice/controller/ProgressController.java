@@ -27,4 +27,15 @@ public class ProgressController {
                 .data(null)
                 .build());
     }
+
+    @Operation(summary = "Record Island Quest Map level completion (Beating Level 6 Boss completes module)")
+    @PostMapping("/activity-map/level-complete")
+    public ResponseEntity<ApiResponse<String>> completeQuestLevel(@Valid @RequestBody LevelCompleteRequestDTO req) {
+        rollupService.recordQuestLevelComplete(req);
+        return ResponseEntity.ok(ApiResponse.<String>builder()
+                .success(true)
+                .message("Quest level recorded and progress updated successfully")
+                .data(null)
+                .build());
+    }
 }
