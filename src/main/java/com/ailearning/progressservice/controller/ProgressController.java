@@ -1,0 +1,30 @@
+package com.ailearning.progressservice.controller;
+
+import com.ailearning.progressservice.dto.*;
+import com.ailearning.progressservice.service.ActivityProgressRollupService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/progress")
+@RequiredArgsConstructor
+@Tag(name = "Progress Tracking", description = "Endpoints for student progress, subjects, courses, activities, and analytics")
+public class ProgressController {
+
+    private final ActivityProgressRollupService rollupService;
+
+    @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
+    @PostMapping("/record")
+    public ResponseEntity<ApiResponse<String>> recordPracticeActivity(@Valid @RequestBody PracticeActivityRequestDTO req) {
+        rollupService.recordPracticeActivity(req);
+        return ResponseEntity.ok(ApiResponse.<String>builder()
+                .success(true)
+                .message("Practice activity recorded and stars awarded successfully")
+                .data(null)
+                .build());
+    }
+}
