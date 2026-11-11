@@ -2,6 +2,7 @@ package com.ailearning.progressservice.controller;
 
 import com.ailearning.progressservice.dto.*;
 import com.ailearning.progressservice.service.ActivityProgressRollupService;
+import com.ailearning.progressservice.service.ProgressSummaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -16,6 +17,14 @@ import org.springframework.web.bind.annotation.*;
 public class ProgressController {
 
     private final ActivityProgressRollupService rollupService;
+    private final ProgressSummaryService summaryService;
+
+    @Operation(summary = "Get full student progress summary for Student UI dashboard")
+    @GetMapping("/summary/user/{userId}")
+    public ResponseEntity<ApiResponse<ProgressSummaryResponseDTO>> getProgressSummary(@PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success("Progress retrieved successfully",
+                summaryService.getStudentProgressDashboard(userId)));
+    }
 
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
     @PostMapping("/record")
