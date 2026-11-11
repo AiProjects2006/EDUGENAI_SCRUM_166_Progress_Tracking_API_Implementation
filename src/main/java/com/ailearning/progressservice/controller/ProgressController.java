@@ -48,6 +48,15 @@ public class ProgressController {
                 courseProgressService.getModuleLevels(userId, moduleId)));
     }
 
+    @Operation(summary = "Get progress for a specific course")
+    @GetMapping("/courses/{courseId}/user/{userId}")
+    public ResponseEntity<ApiResponse<CourseProgressResponseDTO>> getCourseProgress(
+            @PathVariable Long courseId,
+            @PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success("Course progress retrieved",
+                courseProgressService.getCourseProgress(userId, courseId)));
+    }
+
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
     @PostMapping("/record")
     public ResponseEntity<ApiResponse<String>> recordPracticeActivity(@Valid @RequestBody PracticeActivityRequestDTO req) {
