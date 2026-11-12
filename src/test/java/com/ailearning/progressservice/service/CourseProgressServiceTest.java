@@ -80,6 +80,7 @@ class CourseProgressServiceTest {
         assertEquals(1, lvl1.getLevelNumber());
         assertEquals("completed", lvl1.getStatus());
         assertTrue(lvl1.getIsCompleted());
+        assertFalse(lvl1.getIsLocked());
         assertEquals(3, lvl1.getStars());
         assertEquals(BigDecimal.valueOf(95.00), lvl1.getScorePercentage());
 
@@ -88,12 +89,14 @@ class CourseProgressServiceTest {
         assertEquals(2, lvl2.getLevelNumber());
         assertEquals("current", lvl2.getStatus());
         assertFalse(lvl2.getIsCompleted());
+        assertFalse(lvl2.getIsLocked());
 
         // Level 6: locked, boss
         ModuleLevelStatusDTO lvl6 = levels.get(5);
         assertEquals(6, lvl6.getLevelNumber());
         assertEquals("locked", lvl6.getStatus());
         assertTrue(lvl6.getIsBoss());
+        assertTrue(lvl6.getIsLocked());
     }
 
     @Test
