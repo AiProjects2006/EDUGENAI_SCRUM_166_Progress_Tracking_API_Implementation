@@ -130,6 +130,7 @@ public class CourseProgressService {
             boolean isBoss = (lvl == totalLevels);
 
             String status = isCompleted ? "completed" : (isCurrent ? "current" : "locked");
+            boolean isLocked = "locked".equalsIgnoreCase(status);
 
             int stars = 0;
             BigDecimal score = r != null ? r.getScorePercentage() : null;
@@ -149,6 +150,7 @@ public class CourseProgressService {
                     .levelNumber(lvl)
                     .status(status)
                     .isCompleted(isCompleted)
+                    .isLocked(isLocked)
                     .isBoss(isBoss)
                     .stars(stars)
                     .scorePercentage(score)
