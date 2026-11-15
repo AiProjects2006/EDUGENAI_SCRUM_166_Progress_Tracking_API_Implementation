@@ -75,6 +75,14 @@ public class ProgressController {
                 analyticsService.getPlatformAnalyticsOverview()));
     }
 
+    @Operation(summary = "Get analytics for a specific module")
+    @GetMapping("/analytics/module/{moduleId}")
+    public ResponseEntity<ApiResponse<TopicAnalyticsResponseDTO>> getModuleAnalytics(@PathVariable Long moduleId) {
+        return analyticsService.getModuleAnalytics(moduleId)
+                .map(a -> ResponseEntity.ok(ApiResponse.success("Module analytics retrieved", a)))
+                .orElse(ResponseEntity.ok(ApiResponse.error("No analytics found for this module")));
+    }
+
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
     @PostMapping("/record")
     public ResponseEntity<ApiResponse<String>> recordPracticeActivity(@Valid @RequestBody PracticeActivityRequestDTO req) {
