@@ -83,6 +83,13 @@ public class ProgressController {
                 .orElse(ResponseEntity.ok(ApiResponse.error("No analytics found for this module")));
     }
 
+    @Operation(summary = "Get Content Creator analytics & reports data (curriculum effectiveness, grade distribution, learning minutes)")
+    @GetMapping("/analytics/creator/reports")
+    public ResponseEntity<ApiResponse<CreatorAnalyticsReportsDTO>> getCreatorAnalyticsReports() {
+        return ResponseEntity.ok(ApiResponse.success("Analytics & reports data retrieved successfully",
+                analyticsService.getCreatorAnalyticsReports()));
+    }
+
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
     @PostMapping("/record")
     public ResponseEntity<ApiResponse<String>> recordPracticeActivity(@Valid @RequestBody PracticeActivityRequestDTO req) {
