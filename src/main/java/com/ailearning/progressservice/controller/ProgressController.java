@@ -2,6 +2,7 @@ package com.ailearning.progressservice.controller;
 
 import com.ailearning.progressservice.dto.*;
 import com.ailearning.progressservice.service.ActivityProgressRollupService;
+import com.ailearning.progressservice.service.BadgeService;
 import com.ailearning.progressservice.service.CourseProgressService;
 import com.ailearning.progressservice.service.ProgressSummaryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +23,7 @@ public class ProgressController {
     private final ActivityProgressRollupService rollupService;
     private final ProgressSummaryService summaryService;
     private final CourseProgressService courseProgressService;
+    private final BadgeService badgeService;
 
     @Operation(summary = "Get full student progress summary for Student UI dashboard")
     @GetMapping("/summary/user/{userId}")
@@ -55,6 +57,13 @@ public class ProgressController {
             @PathVariable Long userId) {
         return ResponseEntity.ok(ApiResponse.success("Course progress retrieved",
                 courseProgressService.getCourseProgress(userId, courseId)));
+    }
+
+    @Operation(summary = "Get badges earned and locked for student")
+    @GetMapping("/badges/user/{userId}")
+    public ResponseEntity<ApiResponse<List<StudentBadgeResponseDTO>>> getStudentBadges(@PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success("Badges retrieved",
+                badgeService.getStudentBadges(userId)));
     }
 
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
