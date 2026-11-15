@@ -90,6 +90,13 @@ public class ProgressController {
                 analyticsService.getCreatorAnalyticsReports()));
     }
 
+    @Operation(summary = "Get Content Creator student engagement analytics (real-time interaction tracking for Middle School)")
+    @GetMapping("/analytics/creator/engagement")
+    public ResponseEntity<ApiResponse<CreatorStudentEngagementDTO>> getCreatorStudentEngagement() {
+        return ResponseEntity.ok(ApiResponse.success("Student engagement analytics retrieved successfully",
+                analyticsService.getCreatorStudentEngagement()));
+    }
+
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
     @PostMapping("/record")
     public ResponseEntity<ApiResponse<String>> recordPracticeActivity(@Valid @RequestBody PracticeActivityRequestDTO req) {
