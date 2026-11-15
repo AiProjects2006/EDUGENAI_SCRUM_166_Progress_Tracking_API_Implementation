@@ -18,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/progress")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 @Tag(name = "Progress Tracking", description = "Endpoints for student progress, subjects, courses, activities, and analytics")
 public class ProgressController {
 
@@ -66,6 +67,17 @@ public class ProgressController {
     public ResponseEntity<ApiResponse<List<StudentBadgeResponseDTO>>> getStudentBadges(@PathVariable Long userId) {
         return ResponseEntity.ok(ApiResponse.success("Badges retrieved",
                 badgeService.getStudentBadges(userId)));
+    }
+
+    @Operation(summary = "Retrieve student completed activities, scores, marks, and status (filter by type or subject)")
+    @GetMapping("/activities/user/{userId}")
+    public ResponseEntity<ApiResponse<List<ActivityRecordResponseDTO>>> getStudentActivityHistory(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String subject,
+            @RequestParam(required = false) Integer limit) {
+        return ResponseEntity.ok(ApiResponse.success("Completed activities retrieved successfully",
+                courseProgressService.getStudentActivityHistory(userId, type, subject, limit)));
     }
 
     @Operation(summary = "Get aggregate platform performance analytics (Map vs AI Generated vs Combined) for Admins and Content Creators")
