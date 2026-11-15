@@ -2,6 +2,7 @@ package com.ailearning.progressservice.controller;
 
 import com.ailearning.progressservice.dto.*;
 import com.ailearning.progressservice.service.ActivityProgressRollupService;
+import com.ailearning.progressservice.service.AnalyticsService;
 import com.ailearning.progressservice.service.BadgeService;
 import com.ailearning.progressservice.service.CourseProgressService;
 import com.ailearning.progressservice.service.ProgressSummaryService;
@@ -24,6 +25,7 @@ public class ProgressController {
     private final ProgressSummaryService summaryService;
     private final CourseProgressService courseProgressService;
     private final BadgeService badgeService;
+    private final AnalyticsService analyticsService;
 
     @Operation(summary = "Get full student progress summary for Student UI dashboard")
     @GetMapping("/summary/user/{userId}")
@@ -64,6 +66,13 @@ public class ProgressController {
     public ResponseEntity<ApiResponse<List<StudentBadgeResponseDTO>>> getStudentBadges(@PathVariable Long userId) {
         return ResponseEntity.ok(ApiResponse.success("Badges retrieved",
                 badgeService.getStudentBadges(userId)));
+    }
+
+    @Operation(summary = "Get aggregate platform performance analytics (Map vs AI Generated vs Combined) for Admins and Content Creators")
+    @GetMapping("/analytics/overview")
+    public ResponseEntity<ApiResponse<PlatformAnalyticsOverviewDTO>> getPlatformAnalyticsOverview() {
+        return ResponseEntity.ok(ApiResponse.success("Analytics retrieved",
+                analyticsService.getPlatformAnalyticsOverview()));
     }
 
     @Operation(summary = "Record AI Practice activity completion (awards bonus stars and subject progress)")
